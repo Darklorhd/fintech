@@ -202,7 +202,7 @@ const AccountSelector = ({ accounts, selectedAccount, onSelect, label, excludeAc
   )
 }
 
-export default function InternalTransferPage(): JSX.Element {
+export default function InternalTransferPage() {
   const queryClient = useQueryClient()
   
   // Query for user data

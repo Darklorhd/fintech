@@ -98,7 +98,7 @@ const fetchUserData = async (): Promise<UserData> => {
   return response.data
 }
 
-export default function TransactionsPage(): JSX.Element {
+export default function TransactionsPage(){
   // TanStack Query for user data
   const {
     data: userData,
@@ -254,7 +254,7 @@ export default function TransactionsPage(): JSX.Element {
     }
   }
 
-  const getTransactionIcon = (type: Transaction['type']): JSX.Element => {
+  const getTransactionIcon = (type: Transaction['type']) => {
     switch (type) {
       case "TRANSFER":
         return <SendToBack className="h-5 w-5 text-[#2dd4bf]" />

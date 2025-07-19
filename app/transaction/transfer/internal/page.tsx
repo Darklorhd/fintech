@@ -1,4 +1,5 @@
 "use client"
+import react from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+
 
 // Type definitions (keeping your existing types)
 interface PersonalProfile {
@@ -51,7 +53,6 @@ interface Account {
   activationStatus: "ACTIVE" | "PENDING" | "SUSPENDED"
   createdAt: string
   currencyBalances: CurrencyBalance[]
-  lockConditions: any
 }
 
 interface AccountType {
@@ -106,13 +107,99 @@ const submitTransfer = async (transferData: TransferRequest): Promise<TransferRe
   return response.data
 }
 
-// Account Selector Component
-const AccountSelector = ({ accounts, selectedAccount, onSelect, label, excludeAccount, isLoading = false }) => {
-  const filteredAccounts = accounts.filter(acc => acc.id !== excludeAccount)
+
+// Type definitions
+interface CurrencyBalance {
+  id: string;
+  accountId: string;
+  currencyCode: string;
+  availableBalance: number;
+  ledgerBalance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Account {
+  id: string;
+  accountTypeId: string;
+  type: "SAVINGS" | "CURRENT" | "FIXED_DEPOSIT_BY_DATE" | "FIXED_DEPOSIT_BY_AMOUNT";
+  defaultAccount: boolean;
+  minimumBalance: number;
+  interestRate: number;
+  overdraftLimit: number;
+  activationStatus: "ACTIVE" | "PENDING" | "SUSPENDED";
+  createdAt: string;
+  currencyBalances: CurrencyBalance[];
+  lockConditions?: any;
+}
+
+// Props interface for AccountSelector
+interface AccountSelectorProps {
+  accounts: Account[];
+  selectedAccount: string;
+  onSelect: (accountId: string) => void;
+  label: string;
+  excludeAccount?: string;
+  isLoading?: boolean;
+}
+
+// Account Selector Component with TypeScript
+const AccountSelector: React.FC<AccountSelectorProps> = ({ 
+  accounts, 
+  selectedAccount, 
+  onSelect, 
+  label, 
+  excludeAccount, 
+  isLoading = false 
+}) => {
+  const filteredAccounts = accounts.filter((acc: Account) => acc.id !== excludeAccount);
+
+  // Helper function to format currency with proper typing
+  const formatCurrency = (amount: number, currencyCode: string): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      currencyDisplay: 'code'
+    }).format(amount);
+  };
+
+  // Helper function to get account balance with proper typing
+  const getAccountBalance = (account: Account): number => {
+    const primaryBalance = account.currencyBalances?.[0];
+    return primaryBalance?.availableBalance || 0;
+  };
+
+  // Helper function to get account currency with proper typing
+  const getAccountCurrency = (account: Account): string => {
+    const primaryBalance = account.currencyBalances?.[0];
+    return primaryBalance?.currencyCode || "NGN";
+  };
+
+  // Helper function to get badge styling based on status
+  const getBadgeClassName = (status: Account['activationStatus']): string => {
+    const baseClasses = "text-xs";
+    
+    switch (status) {
+      case "ACTIVE":
+        return `${baseClasses} border-green-200 text-green-700 bg-green-50`;
+      case "PENDING":
+        return `${baseClasses} border-yellow-200 text-yellow-700 bg-yellow-50`;
+      case "SUSPENDED":
+        return `${baseClasses} border-red-200 text-red-700 bg-red-50`;
+      default:
+        return `${baseClasses} border-gray-200 text-gray-700 bg-gray-50`;
+    }
+  };
+
+  // Helper function to format account type display
+  const formatAccountType = (type: Account['type']): string => {
+    return type.replace(/_/g, ' ');
+  };
 
   return (
     <div className="space-y-3">
       <Label className="text-sm font-medium text-gray-700">{label}</Label>
+      
       {isLoading ? (
         <div className="p-4 border border-gray-200 rounded-lg">
           <div className="flex items-center gap-2">
@@ -127,34 +214,30 @@ const AccountSelector = ({ accounts, selectedAccount, onSelect, label, excludeAc
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredAccounts.map((account) => {
-            const formatCurrency = (amount, currencyCode) => {
-              return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: currencyCode,
-                currencyDisplay: 'code'
-              }).format(amount)
-            }
-
-            const getAccountBalance = (account) => {
-              const primaryBalance = account.currencyBalances?.[0]
-              return primaryBalance?.availableBalance || 0
-            }
-
-            const getAccountCurrency = (account) => {
-              const primaryBalance = account.currencyBalances?.[0]
-              return primaryBalance?.currencyCode || "NGN"
-            }
-
+          {filteredAccounts.map((account: Account) => {
+            const isSelected = selectedAccount === account.id;
+            const balance = getAccountBalance(account);
+            const currency = getAccountCurrency(account);
+            
             return (
               <div 
                 key={account.id}
                 className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                  selectedAccount === account.id
+                  isSelected
                     ? 'border-[#2dd4bf] bg-[#2dd4bf]/5 shadow-sm'
                     : 'border-gray-200 hover:border-[#2dd4bf]/50'
                 }`}
                 onClick={() => onSelect(account.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelect(account.id);
+                  }
+                }}
+                aria-selected={isSelected}
+                aria-label={`Select ${formatAccountType(account.type)} account with balance ${formatCurrency(balance, currency)}`}
               >
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
@@ -163,7 +246,7 @@ const AccountSelector = ({ accounts, selectedAccount, onSelect, label, excludeAc
                     </div>
                     <div>
                       <div className="font-medium text-[#0d9488]">
-                        {account.type.replace(/_/g, ' ')}
+                        {formatAccountType(account.type)}
                       </div>
                       <div className="text-sm text-gray-600">
                         Interest: {(account.interestRate * 100).toFixed(1)}% p.a.
@@ -172,35 +255,29 @@ const AccountSelector = ({ accounts, selectedAccount, onSelect, label, excludeAc
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-[#2dd4bf]">
-                      {formatCurrency(getAccountBalance(account), getAccountCurrency(account))}
+                      {formatCurrency(balance, currency)}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge 
                         variant="outline" 
-                        className={`text-xs ${
-                          account.activationStatus === "ACTIVE" 
-                            ? "border-green-200 text-green-700 bg-green-50"
-                            : account.activationStatus === "PENDING"
-                            ? "border-yellow-200 text-yellow-700 bg-yellow-50"
-                            : "border-red-200 text-red-700 bg-red-50"
-                        }`}
+                        className={getBadgeClassName(account.activationStatus)}
                       >
                         {account.activationStatus}
                       </Badge>
-                      {selectedAccount === account.id && (
-                        <CheckCircle className="h-4 w-4 text-[#2dd4bf]" />
+                      {isSelected && (
+                        <CheckCircle className="h-4 w-4 text-[#2dd4bf]" aria-label="Selected" />
                       )}
                     </div>
                   </div>
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 export default function InternalTransferPage() {
   const queryClient = useQueryClient()

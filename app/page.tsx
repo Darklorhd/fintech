@@ -274,7 +274,7 @@ export default function TransactionsPage(){
       if (error.response?.status === 404) {
         return "User not found"
       }
-      if (error.response?.status >= 500) {
+      if (typeof error.response?.status === 'number' && error.response.status >= 500) {
         return "Server error. Please try again later."
       }
       return "Network error. Please check your connection."
